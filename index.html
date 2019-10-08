@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
         integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
     <title>Hangman</title>
@@ -21,159 +22,254 @@
             display: none;
         }
 
+        #done-ok {
+            bottom: 10px;
+
+        }
+
         #overlay.active {
             display: block;
         }
 
+        #overlay.inactive {
+            display: none;
+        }
+
         #overlay #alert {
             position: absolute;
-            top: 50%;
+            top: 40%;
             left: 50%;
             transform: translate(-50%, -50%);
             height: 25vh;
             width: 50vw;
             background: rgba(128, 128, 128, 1);
+            text-align: center;
         }
 
-        #overlay #alert p {
+        /* #alert-message {
+            position: absolute;
+            top: 20%;
+        } */
+
+        /* #overlay #alert p{
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             text-align: center;
-        }
+        } */
     </style>
 </head>
 
 <body>
-
-    <div id="holder"></div>
-    <div>Guess Remaining:</div>
-    <div id="guess-remaining">10</div>
-
     <div id="overlay">
         <div id="alert">
-            <p></p>
+            <p id="alert-message"></p>
+            <p id="the-word"></p>
+            <button id="done-ok" type="button" class="btn btn-primary btn-block fixed-bottom"
+                data-dismiss="modal">RESTART</button>
+            <!-- <button id = "done-ok"></button> -->
+        </div>
+    </div>
+
+    <div class="row mt-5">
+        <div class="col-lg-3"></div>
+        <div class="col-lg-6">
+            <div class="card text-center">
+                <h3 class="card-header">Just a Boring Perfectly-Working Hangman Game</h3>
+                <div class="card-body">
+                    <div class="game-hangman">
+                        <div>User's Score :</div>
+                        <p id="user-score">0</p>
+                        <p class="font-weight-bold mt-5 mb-5" id="holder"></p>
+                        <div>Allowable Mistakes Left :</div>
+                        <p id="guess-remaining">10</p>
+                        <div>Letter Guess :</div>
+                        <div id="letter-guess">= </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
 </body>
 
 <script>
-    function triggerAlert(message) {
-        const alertOverlay = document.querySelector("#overlay");
-        const text = alertOverlay.querySelector("p");
-        text.innerText = message;
-        alertOverlay.classList.toggle('active');
-    }
 
-    var currentWord = "";
-    var charUserGuess = "";
-    // var arrWord = "";
-    var morphWord = "";
-    var arrMorphWord = [];
-    var chances = 10;
-    var wordPool = ['P A R A C H U T E', 'A S T R O N A U T', 'O U G H T',
-        'T H E A T R E', 'O C T A G O N', 'K A N G A R O O', 'W I S D O M',
-        'L I B R A R Y', 'B I R T H D A Y', 'U N I V E R S I T Y', 'P O T A T O',
-        'H E L L O', 'W O R L D', 'C A P T A I N', 'P L A N E T', 'H E R O'];
-    const holder = document.getElementById("holder");
-    const gr = document.getElementById("guess-remaining");
-    var gameStatus = true;
-    initAll();
+    $(document).ready(function () {
 
-    function initAll() {
-        currentWord = "";
-        charUserGuess = "";
-        morphWord = "";
-        arrMorphWord = [];
-        currentWord = getRandomWord(wordPool);
-        morphWord = morphWithUnderscore(currentWord);
-        arrMorphWord = wordToArray(currentWord);
-        holder.textContent = morphWord;
-    }
+        $('#done-ok').on("click", function () {
+            initAll();
+        })
 
-    document.onkeyup = function () {
-        charUserGuess = event.key.toUpperCase();
-        console.log(charUserGuess);
-        if (isAnAlphabet(event.key) && gameStatus) {
-            console.log("EVENT KEY " + charUserGuess + " is an alphabet");
-            morphWord.split("");
-            if (arrMorphWord.indexOf(charUserGuess.toUpperCase()) != -1) {
-                console.log("pasingit");
-                if (morphWord.split("").indexOf(charUserGuess.toUpperCase()) == -1) {
-                    console.log("EVENT KEY is in the word");
-                    replaceBlankWithCorrectKey(charUserGuess);
-                    updatePage();
-                    if (morphWord.split("").indexOf("_") == -1) {
-                        console.log("WELL DONE");
-                        gameStatus = false;
-                        // alert("WELL DONE!!");
-                        triggerAlert("WELL DONE!!");
+        function triggerAlert(message) {
+            const alertOverlay = document.querySelector("#overlay");
+            const text = alertOverlay.querySelector("p");
+            text.innerText = message;
+            alertOverlay.classList.toggle('active');
+        }
+
+        function triggerWord(message){
+            $("#the-word").text(message);
+        }
+
+        var arrMorphWord, arrUserGuess, chances, charUserGuess, currentWord, morphWord;
+        var scoreatm = 0;
+        var wordPool = ['P A R A C H U T E', 'A S T R O N A U T', 'O U G H T',
+            'T H E A T R E', 'O C T A G O N', 'K A N G A R O O', 'W I S D O M',
+            'L I B R A R Y', 'B I R T H D A Y', 'U N I V E R S I T Y', 'P O T A T O',
+            'H E L L O', 'W O R L D', 'C A P T A I N', 'P L A N E T', 'H E R O'];
+        const holder = document.getElementById("holder");
+        const gr = document.getElementById("guess-remaining");
+        const btnDone = $("#done-ok");
+        const letguess = $("#letter-guess");
+        var userscore = $('#user-score');
+        var gameStatus = true;
+        initAll();
+
+
+
+        function initAll() {
+            currentWord = "";
+            charUserGuess = "";
+            arrUserGuess = [];
+            morphWord = "";
+            arrMorphWord = [];
+            chances = 10;
+            gameStatus = true;
+            currentWord = getRandomWord(wordPool);
+            morphWord = morphWithUnderscore(currentWord);
+            arrMorphWord = wordToArray(currentWord);
+            holder.textContent = morphWord;
+            gr.textContent = 10;
+            letguess.empty();
+            letguess.textContent = "--> ";
+            const alert1 = document.querySelector("#overlay");
+            alert1.classList.toggle('active', false);
+        }
+
+        document.onkeyup = function () {
+            charUserGuess = event.key.toUpperCase();
+            console.log(charUserGuess);
+            if (isAnAlphabet(event.key) && gameStatus) {
+                if (chances >= 1) {
+                    console.log("CHANCES LEFT: " + chances);
+                    console.log("EVENT KEY " + charUserGuess + " is an alphabet");
+                    morphWord.split("");
+
+
+                    if (arrUserGuess.indexOf(charUserGuess) == -1 && arrMorphWord.indexOf(charUserGuess.toUpperCase()) == -1) {
+                        subChances();
+                        if (chances == 0) {
+                            triggerAlert("YOU LOSE!!!");
+                            triggerWord("THE WORD IS " + currentWord.replace(/ /g, ""));
+                        }
                     }
+                    addUserGuess(charUserGuess);
+                    if (arrMorphWord.indexOf(charUserGuess.toUpperCase()) != -1) {
+
+                        if (morphWord.split("").indexOf(charUserGuess.toUpperCase()) == -1) {
+                            console.log("EVENT KEY is in the word");
+                            replaceBlankWithCorrectKey(charUserGuess);
+                            updatePage();
+                            if (morphWord.split("").indexOf("_") == -1) {
+                                console.log("WELL DONE");
+                                gameStatus = false;
+                                // alert("WELL DONE!!");
+                                scoreatm++;
+                                userscore.text(scoreatm);
+                                triggerAlert("WELL DONE!!");
+                                // btnDone.onclick = function(){
+                                //     initAll();
+                                // }
+                            }
+                        }
+                    }
+                    else {
+                        console.log("onKeyUp : " + chances);
+                        // if (arrUserGuess.indexOf(charUserGuess) == -1) {
+                        //     subChances();
+                        // }
+                    }
+                    updatePage();
+                }
+                else {
+                    // if
+                    // subChances();
+                    triggerAlert("NO MORE MOVES LEFT.")
                 }
             }
-            else {
-                console.log("onKeyUp : " + chances);
-                subChances();
-            }
-            updatePage();
         }
-    }
 
-    function getRandomWord(wordPool) {
-        let randomWord = wordPool[Math.floor(Math.random() * wordPool.length)];
-        console.log("Random word : " + randomWord);
-        return randomWord;
-    }
-
-    function morphWithUnderscore(currentWord) {
-        var arrWord = wordToArray(currentWord);
-        for (var x in arrWord) {
-            if (isAnAlphabet(arrWord[x])) {
-                arrWord[x] = "_";
+        function addUserGuess(guess) {
+            console.log("addUserGuess: START");
+            let strHolder;
+            if (arrUserGuess.indexOf(guess) == -1) {
+                arrUserGuess.push(guess);
+                console.log("addUserGuess: letguess = " + letguess.textContent);
+                console.log("addUserGuess: letguess[-1] = " + letguess.textContent[letguess.textContent.length - 1]);
+                // strHolder = arrUserGuess.join();
+                // letguess.textContent = strHolder;
+                letguess.append(" " + guess);
+                // letguess.textContent = arrUserGuess.join();
             }
         }
-        return arrWord.join("");
-    }
 
-    function wordToArray(currentWord) {
-        return currentWord.split("");
-    }
-
-    function isAnAlphabet(charWord) {
-        // let upChar = charWord.toUpperCase();
-        if (charWord.length === 1) {
-            return /^[a-zA-Z]+$/i.test(charWord);
+        function getRandomWord(wordPool) {
+            let randomWord = wordPool[Math.floor(Math.random() * wordPool.length)];
+            console.log("Random word : " + randomWord);
+            return randomWord;
         }
-    }
 
-    function replaceBlankWithCorrectKey(key) {
-        console.log("replaceBlankWithCorrectKey : START");
-        let upKey = key.toUpperCase();
-        let arrCurr = currentWord.split("");
-        let arrMorp = morphWord.split("");
-        for (var x in arrCurr) {
-            if (arrCurr[x] == upKey) {
-                arrMorp[x] = upKey;
-                console.log("replaceBlankWithCorrectKey : " + arrMorp[x] + " on index " + x + " = " + upKey);
+        function morphWithUnderscore(currentWord) {
+            var arrWord = wordToArray(currentWord);
+            for (var x in arrWord) {
+                if (isAnAlphabet(arrWord[x])) {
+                    arrWord[x] = "_";
+                }
+            }
+            return arrWord.join("");
+        }
+
+        function wordToArray(currentWord) {
+            return currentWord.split("");
+        }
+
+        function isAnAlphabet(charWord) {
+            // let upChar = charWord.toUpperCase();
+            if (charWord.length === 1) {
+                return /^[a-zA-Z]+$/i.test(charWord);
             }
         }
-        morphWord = arrMorp.join("");
-        console.log("replaceBlankWithCorrectKey : morphWord = " + arrMorp);
-    }
 
-    function updatePage() {
-        console.log("updatePage : START");
-        console.log("updatePage : holder.textContent " + holder.textContent);
-        holder.textContent = morphWord;
-        gr.textContent = chances;
-    }
+        function replaceBlankWithCorrectKey(key) {
+            console.log("replaceBlankWithCorrectKey : START");
+            let upKey = key.toUpperCase();
+            let arrCurr = currentWord.split("");
+            let arrMorp = morphWord.split("");
+            for (var x in arrCurr) {
+                if (arrCurr[x] == upKey) {
+                    arrMorp[x] = upKey;
+                    console.log("replaceBlankWithCorrectKey : " + arrMorp[x] + " on index " + x + " = " + upKey);
+                }
+            }
+            morphWord = arrMorp.join("");
+            console.log("replaceBlankWithCorrectKey : morphWord = " + arrMorp);
+        }
 
-    function subChances() {
-        chances--;
-    }
+        function updatePage() {
+            console.log("updatePage : START");
+            console.log("updatePage : holder.textContent " + holder.textContent);
+            holder.textContent = morphWord;
+            gr.textContent = chances;
 
+        }
+
+        function subChances() {
+            chances--;
+            gr.textContent = chances;
+        }
+    });
 </script>
 
 </html>
